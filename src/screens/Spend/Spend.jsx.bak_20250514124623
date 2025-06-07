@@ -1,0 +1,637 @@
+import React, { useState } from "react";
+import { useLocation } from "react-router-dom";
+import { useDashboardStore } from "../DivWrapper/dashboardStore";
+
+// Components
+import { Frame } from "../../components/Frame";
+import { Frame35307 } from "../../components/Frame35307";
+import { Frame35308 } from "../../components/Frame35308";
+import { FrameWrapper } from "../../components/FrameWrapper";
+import { HomeIndicator } from "../../components/HomeIndicator";
+import { IconEllipsis } from "../../components/IconEllipsis";
+
+// Custom Components
+import SpecTooltip from "../../components/SpendComponents/SpecTooltip";
+import TruncateTooltip from "../../components/SpendComponents/TruncateTooltip";
+import MonthlyBarChart from "../../components/SpendComponents/MonthlyBarChart";
+import ItemMonthlyBarChart from "../../components/SpendComponents/ItemMonthlyBarChart";
+import TabContent from "../../components/SpendComponents/TabContent";
+
+// Icons
+import { BarChart1 } from "../../icons/BarChart1";
+import { CaretDown } from "../../icons/CaretDown";
+import { ChevronBack1 } from "../../icons/ChevronBack1";
+import { DocumentText1 } from "../../icons/DocumentText1";
+import { Layers1 } from "../../icons/Layers1";
+import { Search1 } from "../../icons/Search1";
+import { VariantOutline11 } from "../../icons/VariantOutline11";
+import { VariantOutline13 } from "../../icons/VariantOutline13";
+
+// Utilities
+import { formatSpend, formatSpecDetail } from "../../utils/formatUtils";
+import { formatDate } from "../../utils/dateUtils";
+import { 
+  calculateSupplierMetrics, 
+  findTopItem, 
+  calculateItemMonthlySpend,
+  groupByMaterialCode 
+} from "../../utils/dataUtils";
+import { generateSupplierCards } from "../../components/SpendComponents/SupplierCardGenerator";
+
+// Styles
+import "./style.css";
+
+export const Spend = () => {
+  const location = useLocation();
+  const group = location.state?.group || "아이템AAA";
+  const percent = location.state?.percent || "00.00";
+  const dateRange = useDashboardStore(state => state.dateRange);
+  const spendSum = location.state?.spendSum || 0;
+  const mainMaterial = location.state?.mainMaterial || '';
+  const mainSupplier = location.state?.mainSupplier || '';
+  const mainSupplierSpend = location.state?.mainSupplierSpend || 0;
+  const monthlySpendByGroup = useDashboardStore(state => state.monthlySpendByGroup);
+  const monthlyData = monthlySpendByGroup?.[group] || {};
+  const cardData = useDashboardStore(state => state.cardData);
+  const totalSpend = useDashboardStore(state => state.totalSpend);
+  const topItemSuppliersByGroup = useDashboardStore(state => state.topItemSuppliersByGroup || {});
+  const [activeTab, setActiveTab] = useState('spend'); // 'spend', 'price', 'strategy'
+
+  // 현재 group의 rows 찾기
+  const groupObj = cardData?.find(item => item.group === group);
+  const rows = groupObj?.rows || [];
+
+  // group 내에서 spend가 가장 높은 row 찾기
+  let topRow = null;
+  if (rows.length > 0) {
+    topRow = rows.reduce((max, row) => (Number(row.spend || 0) > Number(max.spend || 0) ? row : max), rows[0]);
+  }
+
+  // group 내 전체 spend 합계
+  const groupTotalSpend = rows.reduce((sum, r) => sum + Number(r.spend || 0), 0);
+
+  // 1. Material 데이터 처리
+  const materialList = groupByMaterialCode(rows, groupTotalSpend);
+
+  // 2. Supplier 및 Top Item 데이터 처리
+  const topSuppliers = topItemSuppliersByGroup[group] || [];
+  const topItemName = findTopItem(rows);
+  
+  // 3. 1위 품목의 월간 구매 비용 계산
+  const itemMonthlyData = calculateItemMonthlySpend(rows, topItemName);
+  
+  // 4. 1위 품목에 대해 supplier 정보 계산
+  const supplierMetrics = calculateSupplierMetrics(rows, topItemName);
+  
+  // 5. 공급업체 카드 데이터 생성
+  const supplierCards = generateSupplierCards(topSuppliers, supplierMetrics);
+
+  // 탭 정보 배열로 관리
+  const tabList = [
+    {
+      key: 'spend',
+      label: 'Spend 분석',
+      icon: '/img/line-31-3.svg',
+      textClass: 'text-wrapper-43',
+      frameClass: 'frame-23',
+    },
+    {
+      key: 'price',
+      label: '원자재 시세',
+      icon: '/img/line-31-4.svg',
+      textClass: 'text-wrapper-44',
+      frameClass: 'frame-24',
+    },
+    {
+      key: 'strategy',
+      label: '초기전략',
+      icon: '/img/line-31-5.svg',
+      textClass: 'text-wrapper-44',
+      frameClass: 'frame-48',
+    },
+  ];
+
+  return (
+    <div className="spend">
+      <div className="overlap-wrapper-3">
+        <div className="overlap-9">
+          <div className="overlap-10">
+            {/* Header */}
+            <div className="frame-14">
+              <div className="text-wrapper-33">구매 현황 및 분석</div>
+              <ChevronBack1 className="chevron-back" color="#929292" />
+            </div>
+            <img className="line" alt="Line" src="/img/line-14-1.svg" />
+            
+            {/* Monthly Chart */}
+            <div className="BG" style={{ position: 'relative' }}>
+              <MonthlyBarChart monthlyData={monthlyData} />
+            </div>
+            
+            {/* Home Indicator */}
+            <div className="view">
+              <div className="home-indicator-2" />
+              <HomeIndicator
+                className="home-indicator-instance"  
+                homeIndicatorClassName="design-component-instance-node"  
+              />
+            </div>
+            
+            {/* Description */}
+            <div className="frame-15">
+              <div className="text-wrapper-34">구성 품목 현황</div>
+              <p className="p">선택하신 품목의 상세 분석을 아래에서 확인하실 수 있습니다.</p>
+            </div>
+            
+            {/* Search */}
+            <div className="frame-16">
+              <div className="frame-17">
+                <div className="text-wrapper-35">품목Code, 품목명을 검색하세요</div>
+                <div className="search-wrapper">
+                  <Search1 className="icon-instance-node" />
+                </div>
+              </div>
+            </div>
+            
+            {/* Summary Cards */}
+            <div className="overlap-11">
+              {/* Main Material Card */}
+              <div className="frame-18">
+                <div className="frame-19">
+                  <div className="overlap-12">
+                    <div className="overlap-group-5 main-material-group">
+                      <div className="overlap-group-5">
+                        <div className="rectangle-13" />
+                        <div className="text-wrapper-39">{mainMaterial}</div>
+                      </div>
+                    </div>
+                    <div className="text-wrapper-38">최대 구성 품목</div>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Main Supplier Card */}
+              <div className="frame-20">
+                <div className="frame-19">
+                  <div className="overlap-12">
+                    <div className="overlap-group-5 supplier-group">
+                      <div className="rectangle-13" />
+                      <div className="text-wrapper-39">{mainSupplier}</div>
+                      <div className="text-wrapper-40">(구매 비용: {formatSpend(mainSupplierSpend)})</div>
+                    </div>
+                    <div className="text-wrapper-38">최다 구매 공급업체</div>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Total Cost Card */}
+              <div className="frame-21">
+                <div className="frame-22">
+                  <div className="element-wrapper">
+                    <p className="element-4">
+                      <span className="span">{formatSpend(spendSum)} </span>
+                    </p>
+                  </div>
+                  <div className="text-wrapper-42">총 구매 비용</div>
+                </div>
+              </div>
+            </div>
+            
+            {/* Tabs */}
+            <div className="spend-tab-area">
+              {/* Tab Buttons */}
+              {tabList.map(tab => (
+                <div
+                  key={tab.key}
+                  className={`${tab.frameClass} tab-btn${activeTab === tab.key ? ' active' : ''}`}
+                  onClick={() => setActiveTab(tab.key)}
+                >
+                  <img className="img" alt="Line" src={tab.icon} />
+                  <div className={tab.textClass}>{tab.label}</div>
+                </div>
+              ))}
+              
+              {/* Tab Content */}
+              <TabContent 
+                activeTab={activeTab} 
+                supplierCards={supplierCards} 
+                itemMonthlyData={itemMonthlyData}
+              >
+                <div className="frame-26">
+                  <img className="img-2" alt="Solar chart bold" src="/img/solar-chart-bold-duotone-1.svg" />
+                  <div className="text-wrapper-45">품목 구매 비용</div>
+                </div>
+                
+                {/* 품목 구매 비용 아래 150px 공간 추가 */}
+                <div style={{ height: '150px', width: '100%' }}></div>
+              </TabContent>
+            </div>
+            
+            {/* Register Button */}
+            <div className="frame-27">
+              <div className="text-wrapper-46">구매 데이터 등록</div>
+            </div>
+            <div className="material-symbols-wrapper">
+              <img
+                className="material-symbols"
+                alt="Material symbols"
+                src="/img/material-symbols-data-table-outline-rounded.svg"
+              />
+            </div>
+            
+            {/* Material Table */}
+            <div className="frame-28">
+              {/* Table Headers */}
+              <div className="frame-29">
+                <img className="vector" alt="Vector" src="/img/vector-3-1.svg" />
+                <div className="frame-30">
+                  <div className="frame-31">
+                    <div className="text-wrapper-47">구매 순위</div>
+                    <img className="img-2" alt="Sort arrow" src="/img/caret-down-code.svg" />
+                  </div>
+                  <div className="frame-32">
+                    <div className="text-wrapper-47">품목code</div>
+                    <img className="img-2" alt="Sort arrow" src="/img/caret-down-code.svg" />
+                  </div>
+                  <div className="frame-33">
+                    <div className="text-wrapper-47">품목명</div>
+                    <img className="img-2" alt="Sort arrow" src="/img/caret-down-code.svg" />
+                  </div>
+                  <div className="frame-34">
+                    <div className="text-wrapper-47">비중</div>
+                    <img
+                      className="bi-caret-down-fill"
+                      alt="Sort arrow"
+                      src="/img/caret-down-code.svg"
+                    />
+                  </div>
+                  <div className="frame-35">
+                    <div className="text-wrapper-47">총 구매 비용</div>
+                    <img className="img-2" alt="Sort arrow" src="/img/caret-down-code.svg" />
+                  </div>
+                  <div className="text-wrapper-48">수량</div>
+                  <div className="text-wrapper-49">단위</div>
+                  <div className="text-wrapper-50">규격</div>
+                </div>
+              </div>
+              
+              {/* Table Rows */}
+              <div className="frame-36">
+                {/* Row 2 */}
+                <div className="navbar">
+                  <div className="text-wrapper-56">{materialList[1]?.material_name || '-'}</div>
+                  <div className="text-wrapper-57">{materialList[1]?.material_code || '-'}</div>
+                  <div className="text-wrapper-51">2</div>
+                  <div className="text-wrapper-58">{materialList[1]?.percent || '0.0'} %</div>
+                  <div className="text-wrapper-59">{formatSpend(materialList[1]?.spend || 0)}</div>
+                  <div className="rectangle-16" />
+                  <div className="text-wrapper-60">
+                    {materialList[1]?.quantity != null
+                      ? materialList[1].quantity.toLocaleString()
+                      : '-'}
+                  </div>
+                  <div className="text-wrapper-61">{materialList[1]?.unit || '-'}</div>
+                  <p className="element-TEXT">
+                    <SpecTooltip
+                      displayText={formatSpecDetail(materialList[1] || {})?.displayText || '-'}
+                      fullText={formatSpecDetail(materialList[1] || {})?.fullText || '-'}
+                    />
+                  </p>
+                </div>
+                
+                {/* Row 3 */}
+                <div className="navbar">
+                  <div className="text-wrapper-56">{materialList[2]?.material_name || '-'}</div>
+                  <div className="text-wrapper-57">{materialList[2]?.material_code || '-'}</div>
+                  <div className="text-wrapper-51">3</div>
+                  <div className="text-wrapper-58">{materialList[2]?.percent || '0.0'} %</div>
+                  <div className="text-wrapper-59">{formatSpend(materialList[2]?.spend || 0)}</div>
+                  <div className="rectangle-16" />
+                  <div className="text-wrapper-60">
+                    {materialList[2]?.quantity != null
+                      ? materialList[2].quantity.toLocaleString()
+                      : '-'}
+                  </div>
+                  <div className="text-wrapper-61">{materialList[2]?.unit || '-'}</div>
+                  <p
+                    className="element-TEXT"
+                    style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
+                    title={formatSpecDetail(materialList[2] || {})?.displayText || '-'}
+                  >
+                    {formatSpecDetail(materialList[2] || {})?.displayText || '-'}
+                  </p>
+                </div>
+                
+                {/* Row 4 */}
+                <div className="navbar">
+                  <div className="text-wrapper-56">{materialList[3]?.material_name || '-'}</div>
+                  <div className="text-wrapper-57">{materialList[3]?.material_code || '-'}</div>
+                  <div className="text-wrapper-51">4</div>
+                  <div className="text-wrapper-58">{materialList[3]?.percent || '0.0'} %</div>
+                  <div className="text-wrapper-59">{formatSpend(materialList[3]?.spend || 0)}</div>
+                  <div className="rectangle-16" />
+                  <div className="text-wrapper-60">
+                    {materialList[3]?.quantity != null
+                      ? materialList[3].quantity.toLocaleString()
+                      : '-'}
+                  </div>
+                  <div className="text-wrapper-61">{materialList[3]?.unit || '-'}</div>
+                  <p
+                    className="element-TEXT"
+                    style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
+                    title={formatSpecDetail(materialList[3] || {})?.displayText || '-'}
+                  >
+                    {formatSpecDetail(materialList[3] || {})?.displayText || '-'}
+                  </p>
+                </div>
+              </div>
+              
+              {/* Top Row */}
+              <div className="navbar-2">
+                <div className="text-wrapper-62">구매 이력 보기</div>
+                <div className="text-wrapper-63">{materialList[0]?.material_name || '-'}</div>
+                <div className="text-wrapper-64">1</div>
+                <div className="text-wrapper-65">{materialList[0]?.percent || '0.0'} %</div>
+                <div className="text-wrapper-66">{formatSpend(materialList[0]?.spend || 0)}</div>
+                <div className="text-wrapper-67">{materialList[0]?.material_code || '-'}</div>
+                <div className="text-wrapper-68">
+                  {materialList[0]?.quantity != null
+                    ? materialList[0].quantity.toLocaleString()
+                    : '-'}
+                </div>
+                <div className="text-wrapper-69">{materialList[0]?.unit || '-'}</div>
+                <p className="element-TEXT-2">
+                  <SpecTooltip
+                    displayText={formatSpecDetail(materialList[0] || {})?.displayText || '-'}
+                    fullText={formatSpecDetail(materialList[0] || {})?.fullText || '-'}
+                  />
+                </p>
+              </div>
+            </div>
+            
+            {/* Date Range */}
+            <div className="frame-49">
+              <DocumentText1 className="icon-instance-node" color="#699BF7" />
+              <div className="text-wrapper-71">PSM 보고서 미리보기</div>
+            </div>
+            
+            <div className="frame-37">
+              <div className="text-wrapper-70">{dateRange || '조회기간 없음'}</div>
+              <img className="calendar-today" alt="Calendar today" src="/img/calendar-today.svg" />
+            </div>
+            
+            <div className="frame-38">
+              <div className="text-wrapper-71">6개월</div>
+            </div>
+            <div className="frame-39">
+              <div className="text-wrapper-72">12개월</div>
+            </div>
+            
+            {/* Group Title */}
+            <div className="frame-40">
+              <div className="text-wrapper-73">{group}</div>
+              <div className="text-wrapper-74">(전체 {percent}% 차지)</div>
+            </div>
+            
+            {/* Process Flow */}
+            <div className="frame-41">
+              <div className="frame-42">
+                <div className="frame-43">
+                  <div className="frame-44">
+                    <div
+                      className="frame-44"
+                      style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                        textAlign: 'center',
+                        height: '100%',
+                        width: '100%',
+                        minHeight: 0,
+                        minWidth: 0,
+                      }}
+                    >
+                      <div
+                        className="text-wrapper-75"
+                        style={{
+                          fontWeight: 600,
+                          fontSize: 15,
+                          marginBottom: 4,
+                        }}
+                      >
+                        원자재
+                      </div>
+                      <div
+                        className="text-wrapper-76"
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          width: '100%',
+                          whiteSpace: 'nowrap',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          textAlign: 'center',
+                          fontSize: 16,
+                          fontWeight: 500,
+                          margin: 0,
+                          marginLeft: 25,
+                        }}
+                      >
+                        <TruncateTooltip value={topRow?.raw_material || '-'} />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div className="arrow-container" style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <img
+                    className="react-icons-biplus"
+                    alt="Right arrow"
+                    src="/img/arrow-all.svg"
+                  />
+                  <img
+                    className="react-icons"
+                    alt="Right arrow"
+                    src="/img/arrow-all.svg"
+                  />
+                  <img
+                    className="react-icons-2"
+                    alt="Right arrow"
+                    src="/img/arrow-all.svg"
+                  />
+                </div>
+                <div className="frame-45">
+                  <div className="frame-44">
+                    <div
+                      className="frame-44"
+                      style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        justifyContent: "center",
+                        alignItems: "center",
+                        textAlign: "center",
+                        height: "100%",
+                        width: "100%",
+                      }}
+                    >
+                      <div className="text-wrapper-75">공정</div>
+                      <div
+                        className="text-wrapper-77"
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          width: "auto",
+                          margin: "4px auto 0 auto",
+                          whiteSpace: "nowrap",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          textAlign: "center",
+                          fontSize: 16,
+                          fontWeight: 500,
+                        }}
+                      >
+                        <TruncateTooltip value={topRow?.process_procedure || "-"} />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div className="frame-46">
+                <div className="frame-44">
+                  <div
+                    className="frame-44"
+                    style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      justifyContent: 'center',
+                      alignItems: 'center',
+                      textAlign: 'center',
+                      height: '100%',
+                      width: '100%',
+                    }}
+                  >
+                    <div className="text-wrapper-75">설비</div>
+                    <div
+                      className="text-wrapper-78"
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        width: '30ch',
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        textAlign: 'center',
+                        fontSize: 16,
+                        fontWeight: 500,
+                        margin: 0,
+                        marginLeft: -70,
+                      }}
+                    >
+                      <TruncateTooltip value={topRow?.equipment || '-'} max={30} />
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div className="frame-47">
+                <div className="frame-44">
+                  <div
+                    className="frame-44"
+                    style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      justifyContent: 'center',
+                      alignItems: 'center',
+                      textAlign: 'center',
+                      height: '100%',
+                      width: '100%',
+                    }}
+                  >
+                    <div className="text-wrapper-75">자재</div>
+                    <div
+                      className="text-wrapper-79"
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        width: '30ch',
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        textAlign: 'center',
+                        fontSize: 16,
+                        fontWeight: 500,
+                        margin: 0,
+                        marginLeft: -100,
+                      }}
+                    >
+                      <TruncateTooltip value={topRow?.material_name || '-'} max={30} />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      {/* Sidebar */}
+      <div className="frame-50">
+        <img className="AI-gement" alt="Ai gement" src="/img/ai-gement-2.png" />
+        <div className="overlap-14">
+          <div className="group">
+            <img className="user" alt="User" src="/img/user.png" />
+            <div className="text-wrapper-80">김금동 대리</div>
+            <div className="text-wrapper-81">admin@aiblue.com</div>
+          </div>
+          <IconEllipsis
+            className="icon-ellipsis-instance"  
+            divClassName="icon-ellipsis-2"  
+            elementClassName="icon-ellipsis-2"  
+            elementClassNameOverride="icon-ellipsis-2"  
+          />
+        </div>
+        <div className="component">
+          <div className="text-wrapper-82">구매 현황 및 분석</div>
+          <BarChart1 className="bar-chart" />
+        </div>
+        <div className="component-2">
+          <div className="text-wrapper-83">원가절감 모니터링</div>
+          <VariantOutline13 className="icon-instance-node-2" color="black" />
+        </div>
+        <div className="overlap-group-6">
+          <div className="component-3">
+            <div className="text-wrapper-83">구매 마감 관리</div>
+            <div className="addchart">
+              <Layers1 className="layers-1" />
+            </div>
+          </div>
+          <CaretDown className="caret-down" color="#B8C9EF" />
+        </div>
+        <div className="component-4">
+          <div className="text-wrapper-83">공급 업체 관리</div>
+          <img
+            className="icon-instance-node-2"
+            alt="React icons"
+            src="/img/building-icon.svg"
+          />
+          <CaretDown className="variant-filled-10" color="#B8C9EF" />
+        </div>
+        <div className="frame-51">
+          <img
+            className="icon-instance-node"
+            alt="React icons"
+            src="/img/setting-icon.svg"
+          />
+          <div className="text-wrapper-71">Al-mighty 설정</div>
+        </div>
+        <div className="component-5">
+          <div className="text-wrapper-83">견적서 관리</div>
+          <VariantOutline11 className="icon-instance-node-2" color="black" />
+        </div>
+      </div>
+    </div>
+  );
+};

@@ -1,0 +1,1 @@
+export { VariantFilled } from "./VariantFilled";

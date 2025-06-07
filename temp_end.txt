@@ -1,0 +1,10 @@
+            <div className="component-5">
+              <div className="text-wrapper-83">견적서 관리</div>
+              <VariantOutline11 className="icon-instance-node-2" color="black" />
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};

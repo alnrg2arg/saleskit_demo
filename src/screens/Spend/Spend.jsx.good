@@ -1,0 +1,2933 @@
+import React, { useState } from "react";
+import { Frame } from "../../components/Frame";
+import { Frame35307 } from "../../components/Frame35307";
+import { Frame35308 } from "../../components/Frame35308";
+import { FrameWrapper } from "../../components/FrameWrapper";
+import { HomeIndicator } from "../../components/HomeIndicator";
+import { IconEllipsis } from "../../components/IconEllipsis";
+import { BarChart1 } from "../../icons/BarChart1";
+import { CaretDown } from "../../icons/CaretDown";
+import { ChevronBack1 } from "../../icons/ChevronBack1";
+import { DocumentText1 } from "../../icons/DocumentText1";
+import { Layers1 } from "../../icons/Layers1";
+import { Search1 } from "../../icons/Search1";
+import { VariantOutline11 } from "../../icons/VariantOutline11";
+import { VariantOutline13 } from "../../icons/VariantOutline13";
+import "./style.css";
+import { useLocation } from "react-router-dom";
+import { useDashboardStore } from "../DivWrapper/dashboardStore";
+
+function formatSpend(sum) {
+  return `${Math.round((sum / 1e8) * 10) / 10}억 원`;
+}
+
+// Helper to format spec, color, form for display
+function formatSpecDetail(item) {
+  const parts = [];
+  if (item.spec) parts.push(`Spec: ${item.spec}`);
+  if (item.color) parts.push(`Color: ${item.color}`);
+  if (item.form) parts.push(`Form: ${item.form}`);
+  const fullText = parts.join(' / ');
+  // 글자수 제한: 최대 70자
+  const maxLen = 70;
+  let displayText = fullText;
+  if (fullText.length > maxLen) {
+    displayText = fullText.slice(0, maxLen) + '...';
+  }
+  return { displayText, fullText };
+}
+
+// 커스텀 툴팁 컴포넌트
+function SpecTooltip({ displayText, fullText }) {
+  const [hover, setHover] = useState(false);
+  const [mouse, setMouse] = useState({ x: 0, y: 0 });
+  const isTruncated = displayText.endsWith('...') && fullText.length > displayText.length;
+  const handleMouseMove = (e) => {
+    setMouse({ x: e.clientX, y: e.clientY });
+  };
+  // 분리: ...만 별도 span으로 감싸기
+  let mainText = displayText;
+  let ellipsis = null;
+  if (isTruncated) {
+    mainText = displayText.slice(0, -3);
+    ellipsis = (
+      <span
+        className="spec-ellipsis"
+        style={{ color: '#888', cursor: 'pointer' }}
+        onMouseEnter={() => setHover(true)}
+        onMouseLeave={() => setHover(false)}
+        onMouseMove={handleMouseMove}
+      >
+        ...
+        {hover && (
+          <span
+            style={{
+              position: 'fixed',
+              left: mouse.x + 12,
+              top: mouse.y + 16,
+              background: '#fff',
+              color: '#222',
+              border: '1px solid #bbb',
+              borderRadius: 6,
+              boxShadow: '0 2px 8px rgba(0,0,0,0.12)',
+              padding: '8px 12px',
+              zIndex: 9999,
+              minWidth: 200,
+              maxWidth: 400,
+              fontSize: 13,
+              whiteSpace: 'pre-line',
+              wordBreak: 'break-all',
+              pointerEvents: 'none'
+            }}
+          >
+            {fullText}
+          </span>
+        )}
+      </span>
+    );
+  }
+  return (
+    <span
+      style={{
+        position: 'relative',
+        whiteSpace: 'nowrap',
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        display: 'inline-block',
+        maxWidth: 240,
+        verticalAlign: 'middle'
+      }}
+    >
+      {mainText}{ellipsis}
+    </span>
+  );
+}
+
+// Helper: 30자 초과 시 두 줄로 나누기
+function twoLineText(str, max = 30) {
+  if (!str) return '';
+  if (str.length <= max) return str;
+  const words = str.split(' ');
+  let line1 = '';
+  let line2 = '';
+  for (let w of words) {
+    if ((line1 + ' ' + w).trim().length <= max) {
+      line1 = (line1 + ' ' + w).trim();
+    } else {
+      line2 += (line2 ? ' ' : '') + w;
+    }
+  }
+  if (!line2) {
+    line1 = str.slice(0, max);
+    line2 = str.slice(max);
+  }
+  return line1 + '\n' + line2;
+}
+
+// 커스텀 툴팁 + ... 처리 컴포넌트
+function TruncateTooltip({ value, max = 30 }) {
+  const [hover, setHover] = React.useState(false);
+  const [mouse, setMouse] = React.useState({ x: 0, y: 0 });
+  const isTruncated = value && value.length > max;
+  const displayText = isTruncated ? value.slice(0, max) + '...' : value;
+  const handleMouseMove = (e) => setMouse({ x: e.clientX, y: e.clientY });
+  return (
+    <span
+      style={{
+        display: 'inline-block',
+        whiteSpace: 'nowrap',
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        maxWidth: 1000,
+        textAlign: 'center',
+        cursor: isTruncated ? 'pointer' : 'default',
+      }}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      onMouseMove={isTruncated ? handleMouseMove : undefined}
+    >
+      {displayText}
+      {isTruncated && hover && (
+        <span
+          style={{
+            position: 'fixed',
+            left: mouse.x + 12,
+            top: mouse.y + 16,
+            background: '#fff',
+            color: '#222',
+            border: '1px solid #bbb',
+            borderRadius: 6,
+            boxShadow: '0 2px 8px rgba(0,0,0,0.12)',
+            padding: '8px 12px',
+            zIndex: 9999,
+            minWidth: 200,
+            maxWidth: 400,
+            fontSize: 13,
+            whiteSpace: 'pre-line',
+            wordBreak: 'break-all',
+            pointerEvents: 'none'
+          }}
+        >
+          {value}
+        </span>
+      )}
+    </span>
+  );
+}
+
+export const Spend = () => {
+  const location = useLocation();
+  const group = location.state?.group || "아이템AAA";
+  // TODO: percent can be passed via state or calculated if needed
+  const percent = location.state?.percent || "00.00";
+  const dateRange = useDashboardStore(state => state.dateRange);
+  const spendSum = location.state?.spendSum || 0;
+  const mainMaterial = location.state?.mainMaterial || '';
+  const mainSupplier = location.state?.mainSupplier || '';
+  const mainSupplierSpend = location.state?.mainSupplierSpend || 0;
+  const monthlySpendByGroup = useDashboardStore(state => state.monthlySpendByGroup);
+  const monthlyData = monthlySpendByGroup?.[group] || {};
+  const cardData = useDashboardStore(state => state.cardData);
+  const totalSpend = useDashboardStore(state => state.totalSpend);
+  const [activeTab, setActiveTab] = useState('spend'); // 'spend', 'price', 'strategy'
+
+  // 월별 데이터 정렬 (오래된 순)
+  const sortedMonths = Object.keys(monthlyData).sort();
+  const maxSpend = Math.max(...sortedMonths.map(m => monthlyData[m]));
+
+  // 현재 group의 rows 찾기
+  const groupObj = cardData?.find(item => item.group === group);
+  const rows = groupObj?.rows || [];
+
+  // group 내에서 spend가 가장 높은 row 찾기
+  let topRow = null;
+  if (rows.length > 0) {
+    topRow = rows.reduce((max, row) => (Number(row.spend || 0) > Number(max.spend || 0) ? row : max), rows[0]);
+  }
+
+  // group 내 전체 spend 합계
+  const groupTotalSpend = rows.reduce((sum, r) => sum + Number(r.spend || 0), 0);
+
+  // material_code별로 그룹핑 및 집계
+  const materialMap = {};
+  rows.forEach(row => {
+    const code = row.material_code || "";
+    if (!materialMap[code]) {
+      materialMap[code] = {
+        material_code: code,
+        material_name: row.material_name || "",
+        spec: row.spec || "",
+        color: row.color || "",
+        form: row.form || "",
+        quantity: 0,
+        unit: row.unit || "",
+        spend: 0,
+      };
+    }
+    materialMap[code].quantity += Number(row.quantity) || 0;
+    materialMap[code].spend += Number(row.spend) || 0;
+  });
+
+  // material별로 정렬 (spend 합계 순)
+  const materialList = Object.values(materialMap).sort((a, b) => b.spend - a.spend);
+
+  // 비중 계산 및 규격 합치기 (이제 groupTotalSpend 기준)
+  materialList.forEach(item => {
+    item.percent = groupTotalSpend ? ((item.spend / groupTotalSpend) * 100).toFixed(1) : "0.0";
+    item.spec_full = [item.spec, item.color, item.form].filter(Boolean).join(" / ");
+  });
+
+  // 탭 색상 정의 (더 명확하게)
+  const activeTabBg = '#699bf7'; // 진한 파랑
+  const activeTabText = '#fff';
+  const inactiveTabBg = '#e6edfa'; // 연파랑
+  const inactiveTabText = '#699bf7';
+
+  // 탭 정보 배열로 관리
+  const tabList = [
+    {
+      key: 'spend',
+      label: 'Spend 분석',
+      icon: '/img/line-31-3.svg',
+      textClass: 'text-wrapper-43',
+      frameClass: 'frame-23',
+    },
+    {
+      key: 'price',
+      label: '원자재 시세',
+      icon: '/img/line-31-4.svg',
+      textClass: 'text-wrapper-44',
+      frameClass: 'frame-24',
+    },
+    {
+      key: 'strategy',
+      label: '초기전략',
+      icon: '/img/line-31-5.svg',
+      textClass: 'text-wrapper-44',
+      frameClass: 'frame-48',
+    },
+  ];
+
+  // 탭 컨텐츠 구조화 (추후 내용 추가 용이)
+  const tabContents = {
+    spend: (
+      <div className="overlap-13">
+        <div className="frame-25">
+          <img className="img-2" alt="Mdi company" src="/img/mdi-company-1.svg" />
+          <div className="text-wrapper-45">공급업체별 구매 비용</div>
+        </div>
+        <Frame35308 className="frame-instance" />
+        <Frame35307 className="frame-35307-instance" />
+        <div className="frame-26">
+          <img className="img-2" alt="Solar chart bold" src="/img/solar-chart-bold-duotone-1.svg" />
+          <div className="text-wrapper-45">품목 구매 비용</div>
+        </div>
+      </div>
+    ),
+    price: (
+      <div className="overlap-13" style={{ minHeight: 180, background: '#fff', borderRadius: 16 }} />
+    ),
+    strategy: (
+      <div className="overlap-13" style={{ minHeight: 180, background: '#fff', borderRadius: 16 }} />
+    ),
+  };
+
+  function renderMonthlyBarChart() {
+    if (!sortedMonths.length) return <div style={{color:'#888',textAlign:'center',marginTop:24}}>월별 데이터 없음</div>;
+    const barCount = sortedMonths.length;
+    const minBarWidth = 18;
+    const maxBarWidth = 60; // 넓어져도 되므로 크게 설정
+    let gap = 0;
+    let barWidthPercent = 100 / barCount;
+    return (
+      <div
+        style={{
+          position: 'absolute',
+          left: 0,
+          right: 0,
+          bottom: 0,
+          display: 'flex',
+          alignItems: 'flex-end',
+          height: 70,
+          padding: '0 24px 8px 24px',
+          gap: gap,
+          width: '100%',
+          boxSizing: 'border-box',
+          justifyContent: 'space-between'
+        }}
+      >
+        <span
+          style={{
+            position: 'absolute',
+            top: -32,
+            right: 12,
+            fontSize: 11,
+            color: '#888',
+            zIndex: 2,
+            background: 'white',
+            padding: '0 4px'
+          }}
+        >
+          (단위: 억원)
+        </span>
+        {sortedMonths.map(month => {
+          const val = monthlyData[month];
+          const h = maxSpend ? Math.max(8, Math.round((val / maxSpend) * 48)) : 8;
+          const displayVal = `${(val / 1e8).toFixed(1)}`;
+          return (
+            <div
+              key={month}
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                flexBasis: `${barWidthPercent}%`,
+                minWidth: minBarWidth,
+                maxWidth: maxBarWidth,
+              }}
+            >
+              <div style={{fontSize: 11, color: '#222', marginBottom: 2, fontWeight: 500}}>
+                {displayVal}
+              </div>
+              <div style={{height:h,background:'#699bf7',width:'100%',borderRadius:4,marginBottom:4}} title={`${month}: ${formatSpend(val)}`}></div>
+              <div style={{fontSize:10,color:'#888',textAlign:'center',width:'100%'}}>{month.slice(2)}</div>
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
+
+  return (
+    <div
+  
+    className= "spend" 
+
+  
+
+  
+
+  
+
+  
+
+
+>
+<div
+  
+    className= "overlap-wrapper-3" 
+
+  
+
+  
+
+  
+
+  
+
+
+>
+<div
+  
+    className= "overlap-9" 
+
+  
+
+  
+
+  
+
+  
+
+
+>
+<div
+  
+    className= "overlap-10" 
+
+  
+
+  
+
+  
+
+  
+
+
+>
+<div
+  
+    className= "frame-14" 
+
+  
+
+  
+
+  
+
+  
+
+
+>
+<div
+  
+    className= "text-wrapper-33" 
+
+  
+
+  
+
+  
+
+  
+
+
+>
+구매 현황 및 분석
+</div>
+<ChevronBack1
+  
+    
+        className="chevron-back"  
+      
+    
+        color="#929292"  
+      
+    
+  
+/>
+</div>
+<img
+  
+    className= "line" 
+
+  
+
+  
+
+  alt="Line"
+src="/img/line-14-1.svg"
+
+
+  
+
+
+/>
+<div className="BG" style={{ position: 'relative' }}>
+  {renderMonthlyBarChart()}
+</div>
+<div
+  
+    className= "view" 
+
+  
+
+  
+
+  
+
+  
+
+
+>
+<div
+  
+    className= "home-indicator-2" 
+
+  
+
+  
+
+  
+
+  
+
+
+/>
+<HomeIndicator
+  
+    
+        className="home-indicator-instance"  
+      
+    
+        homeIndicatorClassName="design-component-instance-node"  
+      
+    
+  
+/>
+</div>
+<div
+  
+    className= "frame-15" 
+
+  
+
+  
+
+  
+
+  
+
+
+>
+<div
+  
+    className= "text-wrapper-34" 
+
+  
+
+  
+
+  
+
+  
+
+
+>
+구성 품목 현황
+</div>
+<p
+  
+    className= "p" 
+
+  
+
+  
+
+  
+
+  
+
+
+>
+선택하신 품목의 상세 분석을 아래에서 확인하실 수 있습니다.
+</p>
+</div>
+<div
+  
+    className= "frame-16" 
+
+  
+
+  
+
+  
+
+  
+
+
+>
+<div
+  
+    className= "frame-17" 
+
+  
+
+  
+
+  
+
+  
+
+
+>
+<div
+  
+    className= "text-wrapper-35" 
+
+  
+
+  
+
+  
+
+  
+
+
+>
+품목Code, 품목명을 검색하세요
+</div>
+<div
+  
+    className= "search-wrapper" 
+
+  
+
+  
+
+  
+
+  
+
+
+>
+<Search1
+  
+    
+        className="icon-instance-node"  
+      
+    
+  
+/>
+</div>
+</div>
+</div>
+<div
+  
+    className= "overlap-11" 
+
+  
+
+  
+
+  
+
+  
+
+
+>
+<div
+  
+    className= "frame-18" 
+
+  
+
+  
+
+  
+
+  
+
+
+>
+<div
+  
+    className= "frame-19" 
+
+  
+
+  
+
+  
+
+  
+
+
+>
+<div
+  
+    className= "overlap-12" 
+
+  
+
+  
+
+  
+
+  
+
+
+>
+<div
+  
+    className= "overlap-group-5 main-material-group" 
+
+  
+
+  
+
+  
+
+  
+
+
+>
+<div className="overlap-group-5">
+  <div className="rectangle-13" />
+  <div className="text-wrapper-39">{mainMaterial}</div>
+</div>
+</div>
+<div
+  
+    className= "text-wrapper-38" 
+
+  
+
+  
+
+  
+
+  
+
+
+>
+최대 구성 품목
+</div>
+</div>
+</div>
+</div>
+<div
+  
+    className= "frame-20" 
+
+  
+
+  
+
+  
+
+  
+
+
+>
+<div
+  
+    className= "frame-19" 
+
+  
+
+  
+
+  
+
+  
+
+
+>
+<div
+  
+    className= "overlap-12" 
+
+  
+
+  
+
+  
+
+  
+
+
+>
+<div
+  
+    className= "overlap-group-5 supplier-group" 
+
+  
+
+  
+
+  
+
+  
+
+
+>
+<div
+  
+    className= "rectangle-13" 
+
+  
+
+  
+
+  
+
+  
+
+
+/>
+<div
+  
+    className= "text-wrapper-39" 
+
+  
+
+  
+
+  
+
+  
+
+
+>
+{mainSupplier}
+</div>
+<div
+  
+    className= "text-wrapper-40" 
+
+  
+
+  
+
+  
+
+  
+
+
+>
+(구매 비용: {formatSpend(mainSupplierSpend)})
+</div>
+</div>
+<div
+  
+    className= "text-wrapper-38" 
+
+  
+
+  
+
+  
+
+  
+
+
+>
+최다 구매 공급업체
+</div>
+</div>
+</div>
+</div>
+<div
+  
+    className= "frame-21" 
+
+  
+
+  
+
+  
+
+  
+
+
+>
+<div
+  
+    className= "frame-22" 
+
+  
+
+  
+
+  
+
+  
+
+
+>
+<div
+  
+    className= "element-wrapper" 
+
+  
+
+  
+
+  
+
+  
+
+
+>
+<p
+  
+    className= "element-4" 
+
+  
+
+  
+
+  
+
+  
+
+
+>
+<span className="span">{formatSpend(spendSum)} </span>
+</p>
+</div>
+<div
+  
+    className= "text-wrapper-42" 
+
+  
+
+  
+
+  
+
+  
+
+
+>
+총 구매 비용
+</div>
+</div>
+</div>
+</div>
+<div
+  
+    className= "frame-23" 
+
+  
+
+  
+
+  
+
+  
+
+
+>
+<div
+  
+    className= "rectangle-14" 
+
+  
+
+  
+
+  
+
+  
+
+
+/>
+<img
+  
+    className= "img" 
+
+  
+
+  
+
+  alt="Line"
+src="/img/line-31-3.svg"
+
+
+  
+
+
+/>
+<div
+  
+    className= "text-wrapper-43" 
+
+  
+
+  
+
+  
+
+  
+
+
+>
+Spend 분석
+</div>
+</div>
+<div
+  
+    className= "frame-24" 
+
+  
+
+  
+
+  
+
+  
+
+
+>
+<div
+  
+    className= "rectangle-15" 
+
+  
+
+  
+
+  
+
+  
+
+
+/>
+<img
+  
+    className= "img" 
+
+  
+
+  
+
+  alt="Line"
+src="/img/line-31-4.svg"
+
+
+  
+
+
+/>
+<div
+  
+    className= "text-wrapper-44" 
+
+  
+
+  
+
+  
+
+  
+
+
+>
+원자재 시세
+</div>
+</div>
+<div
+  
+    className= "overlap-13" 
+
+  
+
+  
+
+  
+
+  
+
+
+>
+<div
+  
+    className= "frame-25" 
+
+  
+
+  
+
+  
+
+  
+
+
+>
+<img
+  
+    className= "img-2" 
+
+  
+
+  
+
+  alt="Mdi company"
+src="/img/mdi-company-1.svg"
+
+
+  
+
+
+/>
+<div
+  
+    className= "text-wrapper-45" 
+
+  
+
+  
+
+  
+
+  
+
+
+>
+공급업체별 구매 비용
+</div>
+</div>
+<Frame
+  
+    
+        className="frame-35306"  
+      
+    
+  
+/>
+<FrameWrapper
+  
+    
+        className="frame-498"  
+      
+    
+  
+/>
+<Frame35308
+  
+    
+        className="frame-instance"  
+      
+    
+  
+/>
+<Frame35307
+  
+    
+        className="frame-35307-instance"  
+      
+    
+  
+/>
+<div
+  
+    className= "frame-26" 
+
+  
+
+  
+
+  
+
+  
+
+
+>
+<img
+  
+    className= "img-2" 
+
+  
+
+  
+
+  alt="Solar chart bold"
+src="/img/solar-chart-bold-duotone-1.svg"
+
+
+  
+
+
+/>
+<div
+  
+    className= "text-wrapper-45" 
+
+  
+
+  
+
+  
+
+  
+
+
+>
+품목 구매 비용
+</div>
+</div>
+</div>
+<div
+  
+    className= "frame-27" 
+
+  
+
+  
+
+  
+
+  
+
+
+>
+<div
+  
+    className= "text-wrapper-46" 
+
+  
+
+  
+
+  
+
+  
+
+
+>
+구매 데이터 등록
+</div>
+</div>
+<div
+  
+    className= "material-symbols-wrapper" 
+
+  
+
+  
+
+  
+
+  
+
+
+>
+<img
+  
+    className= "material-symbols" 
+
+  
+
+  
+
+  alt="Material symbols"
+src="/img/material-symbols-data-table-outline-rounded.svg"
+
+
+  
+
+
+/>
+</div>
+<div
+  
+    className= "frame-28" 
+
+  
+
+  
+
+  
+
+  
+
+
+>
+<div
+  
+    className= "frame-29" 
+
+  
+
+  
+
+  
+
+  
+
+
+>
+<img
+  
+    className= "vector" 
+
+  
+
+  
+
+  alt="Vector"
+src="/img/vector-3-1.svg"
+
+
+  
+
+
+/>
+<div
+  
+    className= "frame-30" 
+
+  
+
+  
+
+  
+
+  
+
+
+>
+<div
+  
+    className= "frame-31" 
+
+  
+
+  
+
+  
+
+  
+
+
+>
+<div
+  
+    className= "text-wrapper-47" 
+
+  
+
+  
+
+  
+
+  
+
+
+>
+구매 순위
+</div>
+<img
+  
+    className= "img-2" 
+
+  
+
+  
+
+  alt="Down arrow"
+src="/img/down-arrow.svg"
+
+
+  
+
+
+/>
+</div>
+<div
+  
+    className= "frame-32" 
+
+  
+
+  
+
+  
+
+  
+
+
+>
+<div
+  
+    className= "text-wrapper-47" 
+
+  
+
+  
+
+  
+
+  
+
+
+>
+품목code
+</div>
+<img
+  
+    className= "img-2" 
+
+  
+
+  
+
+  alt="Down arrow"
+src="/img/down-arrow.svg"
+
+
+  
+
+
+/>
+</div>
+<div
+  
+    className= "frame-33" 
+
+  
+
+  
+
+  
+
+  
+
+
+>
+<div
+  
+    className= "text-wrapper-47" 
+
+  
+
+  
+
+  
+
+  
+
+
+>
+품목명
+</div>
+<img
+  
+    className= "img-2" 
+
+  
+
+  
+
+  alt="Down arrow"
+src="/img/down-arrow.svg"
+
+
+  
+
+
+/>
+</div>
+<div
+  
+    className= "frame-34" 
+
+  
+
+  
+
+  
+
+  
+
+
+>
+<div
+  
+    className= "text-wrapper-47" 
+
+  
+
+  
+
+  
+
+  
+
+
+>
+비중
+</div>
+<img
+  
+    className= "bi-caret-down-fill" 
+
+  
+
+  
+
+  alt="Down arrow"
+src="/img/down-arrow.svg"
+
+
+  
+
+
+/>
+</div>
+<div
+  
+    className= "frame-35" 
+
+  
+
+  
+
+  
+
+  
+
+
+>
+<div
+  
+    className= "text-wrapper-47" 
+
+  
+
+  
+
+  
+
+  
+
+
+>
+총 구매 비용
+</div>
+<img
+  
+    className= "img-2" 
+
+  
+
+  
+
+  alt="Down arrow"
+src="/img/down-arrow.svg"
+
+
+  
+
+
+/>
+</div>
+<div
+  
+    className= "text-wrapper-48" 
+
+  
+
+  
+
+  
+
+  
+
+
+>
+수량
+</div>
+<div
+  
+    className= "text-wrapper-49" 
+
+  
+
+  
+
+  
+
+  
+
+
+>
+단위
+</div>
+<div
+  
+    className= "text-wrapper-50" 
+
+  
+
+  
+
+  
+
+  
+
+
+>
+규격
+</div>
+</div>
+</div>
+<div
+  
+    className= "navbar-wrapper" 
+
+  
+
+  
+
+  
+
+  
+
+
+>
+<div
+  
+    className= "navbar" 
+
+  
+
+  
+
+  
+
+  
+
+
+>
+<div
+  
+    className= "TEXT-TEXT-TEXT-TEXT" 
+>
+  품목명TEXT TEXT TEXT TEXT
+</div>
+<div
+  
+    className= "code" 
+>
+  품목Code
+</div>
+<div
+  
+    className= "text-wrapper-51" 
+>
+3
+</div>
+<div
+  
+    className= "text-wrapper-52" 
+>
+  비중
+</div>
+<div
+  
+    className= "text-wrapper-53" 
+>
+  총 구매 비용
+</div>
+<div
+  
+    className= "rectangle-16" 
+/>
+<div
+  
+    className= "text-wrapper-54" 
+>
+  단위
+</div>
+<div
+  
+    className= "text-wrapper-55" 
+>
+  수량
+</div>
+<p
+    className= "element-TEXT" 
+>
+  규격: 600*400*230 재질 및 두께: TEXT TEXT TEXT 도수: TEXT TEXT 가공: TEXT TEXT
+</p>
+</div>
+</div>
+<div
+  
+    className= "frame-36" 
+
+  
+
+  
+
+  
+
+  
+
+
+>
+<div
+  
+    className= "navbar" 
+
+  
+
+  
+
+  
+
+  
+
+
+>
+<div
+  
+    className= "text-wrapper-56" 
+
+  
+
+  
+
+  
+
+  
+
+
+>
+품목BBB
+</div>
+<div
+  
+    className= "text-wrapper-57" 
+
+  
+
+  
+
+  
+
+  
+
+
+>
+BB0001
+</div>
+<div
+  
+    className= "text-wrapper-51" 
+
+  
+
+  
+
+  
+
+  
+
+
+>
+2
+</div>
+<div
+  
+    className= "text-wrapper-58" 
+
+  
+
+  
+
+  
+
+  
+
+
+>
+15.9 %
+</div>
+<div
+  
+    className= "text-wrapper-59" 
+
+  
+
+  
+
+  
+
+  
+
+
+>
+00억원
+</div>
+<div
+  
+    className= "rectangle-16" 
+
+  
+
+  
+
+  
+
+  
+
+
+/>
+<div
+  
+    className= "text-wrapper-60" 
+
+  
+
+  
+
+  
+
+  
+
+
+>
+9,999
+</div>
+<div
+  
+    className= "text-wrapper-61" 
+
+  
+
+  
+
+  
+
+  
+
+
+>
+g
+</div>
+<p
+  
+    className= "element-TEXT" 
+
+  
+
+  
+
+  
+
+  
+
+
+>
+규격: 600*400*230 재질 및 두께: TEXT TEXT TEXT 도수: TEXT TEXT 가공: TEXT TEXT
+</p>
+</div>
+</div>
+<div
+  
+    className= "navbar-2" 
+
+  
+
+  
+
+  
+
+  
+
+
+>
+<div
+  
+    className= "text-wrapper-62" 
+
+  
+
+  
+
+  
+
+  
+
+
+>
+구매 이력 보기
+</div>
+<div
+  
+    className= "text-wrapper-63" 
+
+  
+
+  
+
+  
+
+  
+
+
+>
+품목AAA
+</div>
+<div
+  
+    className= "text-wrapper-64" 
+
+  
+
+  
+
+  
+
+  
+
+
+>
+1
+</div>
+<div
+  
+    className= "text-wrapper-65" 
+
+  
+
+  
+
+  
+
+  
+
+
+>
+30.9 %
+</div>
+<div
+  
+    className= "text-wrapper-66" 
+
+  
+
+  
+
+  
+
+  
+
+
+>
+99억원
+</div>
+<div
+  
+    className= "text-wrapper-67" 
+
+  
+
+  
+
+  
+
+  
+
+
+>
+AA0001
+</div>
+<div
+  
+    className= "text-wrapper-68" 
+
+  
+
+  
+
+  
+
+  
+
+
+>
+9,999
+</div>
+<div
+  
+    className= "text-wrapper-69" 
+
+  
+
+  
+
+  
+
+  
+
+
+>
+g
+</div>
+<p
+  
+    className= "element-TEXT-2" 
+
+  
+
+  
+
+  
+
+  
+
+
+>
+규격: 600*400*230 재질 및 두께: TEXT TEXT TEXT 도수: TEXT TEXT 가공: TEXT TEXT
+</p>
+</div>
+</div>
+<div
+  
+    className= "frame-37" 
+
+  
+
+  
+
+  
+
+  
+
+
+>
+<div
+  
+    className= "text-wrapper-70" 
+
+  
+
+  
+
+  
+
+  
+
+
+>
+{dateRange || '조회기간 없음'}
+</div>
+<img
+  
+    className= "calendar-today" 
+
+  
+
+  
+
+  alt="Calendar today"
+src="/img/calendar-today-1.svg"
+
+
+  
+
+
+/>
+</div>
+<div
+  
+    className= "frame-38" 
+
+  
+
+  
+
+  
+
+  
+
+
+>
+<div
+  
+    className= "text-wrapper-71" 
+
+  
+
+  
+
+  
+
+  
+
+
+>
+6개월
+</div>
+</div>
+<div
+  
+    className= "frame-39" 
+
+  
+
+  
+
+  
+
+  
+
+
+>
+<div
+  
+    className= "text-wrapper-72" 
+
+  
+
+  
+
+  
+
+  
+
+
+>
+12개월
+</div>
+</div>
+<div
+  
+    className= "frame-40" 
+
+  
+
+  
+
+  
+
+  
+
+
+>
+<div
+  
+    className= "text-wrapper-73" 
+
+  
+
+  
+
+  
+
+  
+
+
+>
+{group}
+</div>
+<div
+  
+    className= "text-wrapper-74" 
+
+  
+
+  
+
+  
+
+  
+
+
+>
+(전체 {percent}% 차지)
+</div>
+</div>
+<div
+  
+    className= "frame-41" 
+
+  
+
+  
+
+  
+
+  
+
+
+>
+<div
+  
+    className= "frame-42" 
+
+  
+
+  
+
+  
+
+  
+
+
+>
+<div
+  
+    className= "frame-43" 
+
+  
+
+  
+
+  
+
+  
+
+
+>
+<div
+  
+    className= "frame-44" 
+
+  
+
+  
+
+  
+
+  
+
+
+>
+<div
+  
+    className= "text-wrapper-75" 
+
+  
+
+  
+
+  
+
+  
+
+
+>
+원자재
+</div>
+</div>
+</div>
+</div>
+<div className="arrow-container">
+  <img
+    className="react-icons-biplus"
+    alt="React icons biplus"
+    src="/img/arrow-right.svg"
+  />
+  <img
+    className="react-icons"
+    alt="React icons"
+    src="/img/arrow-right.svg"
+  />
+  <img
+    className="react-icons-2"
+    alt="React icons"
+    src="/img/arrow-right.svg"
+  />
+</div>
+<div className="frame-45">
+  <div className="frame-44">
+    <div
+      className="frame-44"
+</div>
+</div>
+</div>
+<div
+  
+    className= "frame-46" 
+
+  
+
+  
+
+  
+
+  
+
+
+>
+<div
+  
+    className= "frame-44" 
+
+  
+
+  
+
+  
+
+  
+
+
+>
+<div
+  
+    className= "text-wrapper-75" 
+
+  
+
+  
+
+  
+
+  
+
+
+>
+설비
+</div>
+<div
+  
+    className= "text-wrapper-78" 
+
+  
+
+  
+
+  
+
+  
+
+
+>
+Extractor (unspecified)
+</div>
+</div>
+</div>
+<div
+  
+    className= "frame-47" 
+
+  
+
+  
+
+  
+
+  
+
+
+>
+<div
+  
+    className= "frame-44" 
+
+  
+
+  
+
+  
+
+  
+
+
+>
+<div
+  
+    className= "text-wrapper-75" 
+
+  
+
+  
+
+  
+
+  
+
+
+>
+자재
+</div>
+<div
+  
+    className= "text-wrapper-79" 
+
+  
+
+  
+
+  
+
+  
+
+
+>
+치자황색소
+</div>
+</div>
+</div>
+</div>
+<div
+  
+    className= "frame-48" 
+
+  
+
+  
+
+  
+
+  
+
+
+>
+<div
+  
+    className= "rectangle-15" 
+
+  
+
+  
+
+  
+
+  
+
+
+/>
+<img
+  
+    className= "img" 
+
+  
+
+  
+
+  alt="Line"
+src="/img/line-31-5.svg"
+
+
+  
+
+
+/>
+<div
+  
+    className= "text-wrapper-44" 
+
+  
+
+  
+
+  
+
+  
+
+
+>
+초기전략
+</div>
+</div>
+<div
+  
+    className= "frame-49" 
+
+  
+
+  
+
+  
+
+  
+
+
+>
+<DocumentText1
+  
+    
+        className="icon-instance-node"  
+      
+    
+        color="#699BF7"  
+      
+    
+  
+/>
+<div
+  
+    className= "text-wrapper-71" 
+
+  
+
+  
+
+  
+
+  
+
+
+>
+PSM 보고서 미리보기
+</div>
+</div>
+</div>
+<div
+  
+    className= "frame-50" 
+
+  
+
+  
+
+  
+
+  
+
+
+>
+<img
+  
+    className= "AI-gement" 
+
+  
+
+  
+
+  alt="Ai gement"
+src="/img/ai-gement-2.png"
+
+
+  
+
+
+/>
+<div
+  
+    className= "overlap-14" 
+
+  
+
+  
+
+  
+
+  
+
+
+>
+<div
+  
+    className= "group" 
+
+  
+
+  
+
+  
+
+  
+
+
+>
+<img
+  
+    className= "user" 
+
+  
+
+  
+
+  alt="User"
+src="/img/user.png"
+
+
+  
+
+
+/>
+<div
+  
+    className= "text-wrapper-80" 
+
+  
+
+  
+
+  
+
+  
+
+
+>
+김금동 대리
+</div>
+<div
+  
+    className= "text-wrapper-81" 
+
+  
+
+  
+
+  
+
+  
+
+
+>
+admin@aiblue.com
+</div>
+</div>
+<IconEllipsis
+  
+    
+        className="icon-ellipsis-instance"  
+      
+    
+        divClassName="icon-ellipsis-2"  
+      
+    
+        elementClassName="icon-ellipsis-2"  
+      
+    
+        elementClassNameOverride="icon-ellipsis-2"  
+      
+    
+  
+/>
+</div>
+<div
+  
+    className= "component" 
+
+  
+
+  
+
+  
+
+  
+
+
+>
+<div
+  
+    className= "text-wrapper-82" 
+
+  
+
+  
+
+  
+
+  
+
+
+>
+구매 현황 및 분석
+</div>
+<BarChart1
+  
+    
+        className="bar-chart"  
+      
+    
+  
+/>
+</div>
+<div
+  
+    className= "component-2" 
+
+  
+
+  
+
+  
+
+  
+
+
+>
+<div
+  
+    className= "text-wrapper-83" 
+
+  
+
+  
+
+  
+
+  
+
+
+>
+원가절감 모니터링
+</div>
+<VariantOutline13
+  
+    
+        className="icon-instance-node-2"  
+      
+    
+        color="black"  
+      
+    
+  
+/>
+</div>
+<div
+  
+    className= "overlap-group-6" 
+
+  
+
+  
+
+  
+
+  
+
+
+>
+<div
+  
+    className= "component-3" 
+
+  
+
+  
+
+  
+
+  
+
+
+>
+<div
+  
+    className= "text-wrapper-83" 
+
+  
+
+  
+
+  
+
+  
+
+
+>
+구매 마감 관리
+</div>
+<div
+  
+    className= "addchart" 
+
+  
+
+  
+
+  
+
+  
+
+
+>
+<Layers1
+  
+    
+        className="layers-1"  
+      
+    
+  
+/>
+</div>
+</div>
+<CaretDown
+  
+    
+        className="caret-down"  
+      
+    
+        color="#B8C9EF"  
+      
+    
+  
+/>
+</div>
+<div
+  
+    className= "component-4" 
+
+  
+
+  
+
+  
+
+  
+
+
+>
+<div
+  
+    className= "text-wrapper-83" 
+
+  
+
+  
+
+  
+
+  
+
+
+>
+공급 업체 관리
+</div>
+<img
+  
+    className= "icon-instance-node-2" 
+
+  
+
+  
+
+  alt="React icons"
+src="/img/react-icons-pibuildingoffice.svg"
+
+
+  
+
+
+/>
+<CaretDown
+  
+    
+        className="variant-filled-10"  
+      
+    
+        color="#B8C9EF"  
+      
+    
+  
+/>
+</div>
+<div
+  
+    className= "frame-51" 
+
+  
+
+  
+
+  
+
+  
+
+
+>
+<img
+  
+    className= "icon-instance-node" 
+
+  
+
+  
+
+  alt="React icons"
+src="/img/react-icons-aioutlinesetting-1.svg"
+
+
+  
+
+
+/>
+<div
+  
+    className= "text-wrapper-71" 
+
+  
+
+  
+
+  
+
+  
+
+
+>
+Al-mighty 설정
+</div>
+</div>
+<div
+  
+    className= "component-5" 
+
+  
+
+  
+
+  
+
+  
+
+
+>
+<div
+  
+    className= "text-wrapper-83" 
+
+  
+
+  
+
+  
+
+  
+
+
+>
+견적서 관리
+</div>
+<VariantOutline11
+  
+    
+        className="icon-instance-node-2"  
+      
+    
+        color="black"  
+      
+    
+  
+/>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+)
+}

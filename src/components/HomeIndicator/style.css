@@ -1,0 +1,16 @@
+.home-indicator {
+  height: 372px;
+  transform: rotate(90.00deg);
+  width: 14px;
+}
+
+.home-indicator .div {
+  background-color: #c1de91;
+  border-radius: 96.23px;
+  height: 16px;
+  left: -180px;
+  position: relative;
+  top: 178px;
+  transform: rotate(90.00deg);
+  width: 374px;
+}

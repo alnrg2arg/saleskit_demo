@@ -1,0 +1,35 @@
+.icon-ellipsis {
+  height: 13px;
+  position: relative;
+  width: 3px;
+}
+
+.icon-ellipsis .element {
+  background-color: var(--black);
+  border-radius: 1.5px;
+  height: 3px;
+  left: 0;
+  position: absolute;
+  top: 10px;
+  width: 3px;
+}
+
+.icon-ellipsis .element-2 {
+  background-color: var(--black);
+  border-radius: 1.5px;
+  height: 3px;
+  left: 0;
+  position: absolute;
+  top: 5px;
+  width: 3px;
+}
+
+.icon-ellipsis .element-3 {
+  background-color: var(--black);
+  border-radius: 1.5px;
+  height: 3px;
+  left: 0;
+  position: absolute;
+  top: 0;
+  width: 3px;
+}
